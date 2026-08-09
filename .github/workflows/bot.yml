@@ -1,9 +1,11 @@
 name: Hololive OCG Discord Bot
 
 on:
+  # 5분마다 자동 실행
   schedule:
     - cron: "*/5 * * * *"
 
+  # Actions 화면에서 수동 실행 가능
   workflow_dispatch:
 
 permissions:
@@ -13,30 +15,48 @@ jobs:
   check-posts:
     runs-on: ubuntu-latest
 
+    # 비정상적으로 오래 실행되는 경우 자동 종료
+    timeout-minutes: 5
+
     steps:
+      # 1. GitHub 저장소 불러오기
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Python 설치
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # 3. 필요한 라이브러리 설치
       - name: Install requirements
         run: pip install -r requirements.txt
 
+      # 4. 실행 정보 표시
+      - name: Show run information
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "UTC time:"
+          date -u
+
+      # 5. X 최신 게시글 확인
       - name: Check X posts
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python bot.py
 
+      # 6. 새 게시글이 발견된 경우 last_post.txt 저장
       - name: Save last post
         run: |
           if git diff --quiet last_post.txt; then
             echo "No new post"
           else
+            echo "New post detected. Updating last_post.txt..."
+
             git config user.name "hololive-ocg-bot"
             git config user.email "hololive-ocg-bot@users.noreply.github.com"
+
             git add last_post.txt
             git commit -m "Update last post"
             git push
