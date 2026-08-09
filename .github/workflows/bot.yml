@@ -1,0 +1,43 @@
+name: Hololive OCG Discord Bot
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-posts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Check X posts
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python bot.py
+
+      - name: Save last post
+        run: |
+          if git diff --quiet last_post.txt; then
+            echo "No new post"
+          else
+            git config user.name "hololive-ocg-bot"
+            git config user.email "hololive-ocg-bot@users.noreply.github.com"
+            git add last_post.txt
+            git commit -m "Update last post"
+            git push
+          fi
