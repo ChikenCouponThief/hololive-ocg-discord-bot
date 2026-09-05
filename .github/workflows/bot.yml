@@ -48,7 +48,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
 
       # x-cli 설치
       - name: Install x-cli
@@ -65,8 +65,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python bot.py
 
-      # 새로운 게시글이 발견된 경우
-      # last_post.txt를 GitHub에 저장
+      # 새로운 게시글이 발견된 경우 last_post.txt를 GitHub에 저장
       - name: Save last post
         run: |
           if git diff --quiet last_post.txt; then
