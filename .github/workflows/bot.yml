@@ -1,18 +1,76 @@
-      - name: Test TwStalker
+name: Hololive OCG Discord Bot
+
+on:
+  # 매시간 02, 07, 12, 17, 22...분에 자동 실행
+  # GitHub Actions의 정각 부근 스케줄 혼잡을 피하기 위한 설정
+  schedule:
+    - cron: "2-59/5 * * * *"
+
+  # Actions 화면에서 직접 실행할 수 있게 함
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# 예약 실행과 수동 실행이 동시에 겹치지 않게 함
+concurrency:
+  group: hololive-ocg-discord-bot
+  cancel-in-progress: false
+
+jobs:
+  check-posts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Show run information
         run: |
-          python - <<'PY'
-          import requests
+          echo "Event: ${{ github.event_name }}"
+          echo "UTC time:"
+          date -u
 
-          url = "https://twstalker.com/hololive_OCG"
+      # GitHub Actions 서버에서 TwStalker에 접근 가능한지 확인
+      - name: Test TwStalker
+        shell: bash
+        run: |
+          python -c "import requests; url='https://twstalker.com/hololive_OCG'; headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0 Safari/537.36'}; r=requests.get(url,headers=headers,timeout=20); print('HTTP status:',r.status_code); print('HTML length:',len(r.text)); print('hololive_OCG found:','hololive_OCG' in r.text); print('status links found:','/status/' in r.text); r.raise_for_status()"
 
-          headers = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0 Safari/537.36"
-          }
+      # 기존 bot.py 실행
+      - name: Check X posts
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python bot.py
 
-          r = requests.get(url, headers=headers, timeout=20)
+      # bot.py가 last_post.txt를 변경했다면 GitHub에 저장
+      - name: Save last post
+        run: |
+          if git diff --quiet last_post.txt; then
+            echo "No new post"
+          else
+            echo "New post detected. Updating last_post.txt..."
 
-          print("HTTP status:", r.status_code)
-          print("HTML length:", len(r.text))
-          print("hololive_OCG found:", "hololive_OCG" in r.text)
-          print("status links found:", "/status/" in r.text)
-          PY
+            git config user.name "hololive-ocg-bot"
+            git config user.email "hololive-ocg-bot@users.noreply.github.com"
+
+            cp last_post.txt /tmp/last_post.txt
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            cp /tmp/last_post.txt last_post.txt
+
+            git add last_post.txt
+            git commit -m "Update last post"
+            git push origin main
+          fi
