@@ -44,6 +44,21 @@ jobs:
           echo "UTC time:"
           date -u
 
+      # x-cli 테스트를 위한 Go 설치
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      # x-cli 설치
+      - name: Install x-cli
+        run: go install github.com/tamnd/x-cli/cmd/x@latest
+
+      # hololive_OCG 게시글 조회 테스트
+      - name: Test X timeline
+        run: |
+          x timeline hololive_OCG --guest -n 5 -o url
+
       # X 최신 게시글 확인
       - name: Check X posts
         env:
