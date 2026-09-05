@@ -1,92 +1,18 @@
-name: Hololive OCG Discord Bot
-
-on:
-  # 매시간 02, 07, 12, 17, 22...분에 자동 실행
-  # GitHub Actions의 정각 부근 스케줄 혼잡을 피하기 위한 설정
-  schedule:
-    - cron: "2-59/5 * * * *"
-
-  # Actions 화면에서 직접 실행할 수 있게 함
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-# 예약 실행과 수동 실행이 동시에 작동하는 것을 방지
-concurrency:
-  group: hololive-ocg-discord-bot
-  cancel-in-progress: false
-
-jobs:
-  check-posts:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      # GitHub 저장소 불러오기
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      # Python 설치
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      # 필요한 Python 라이브러리 설치
-      - name: Install requirements
-        run: pip install -r requirements.txt
-
-      # 실행 방식과 시간 확인용
-      - name: Show run information
+      - name: Test TwStalker
         run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "UTC time:"
-          date -u
+          python - <<'PY'
+          import requests
 
-      # x-cli 테스트를 위한 Go 설치
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
+          url = "https://twstalker.com/hololive_OCG"
 
-      # x-cli 설치
-      - name: Install x-cli
-        run: go install github.com/tamnd/x-cli/cmd/x@latest
+          headers = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0 Safari/537.36"
+          }
 
-      # hololive_OCG 게시글 조회 테스트
-      - name: Test X timeline
-        run: |
-          x timeline hololive_OCG --guest -n 5 -o url
+          r = requests.get(url, headers=headers, timeout=20)
 
-      # X 최신 게시글 확인
-      - name: Check X posts
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: python bot.py
-
-      # 새로운 게시글이 발견된 경우 last_post.txt를 GitHub에 저장
-      - name: Save last post
-        run: |
-          if git diff --quiet last_post.txt; then
-            echo "No new post"
-          else
-            echo "New post detected. Updating last_post.txt..."
-
-            git config user.name "hololive-ocg-bot"
-            git config user.email "hololive-ocg-bot@users.noreply.github.com"
-
-            # 새 게시글 ID 임시 보관
-            cp last_post.txt /tmp/last_post.txt
-
-            # GitHub의 가장 최신 main 브랜치 가져오기
-            git fetch origin main
-            git reset --hard origin/main
-
-            # 새 게시글 ID 다시 적용
-            cp /tmp/last_post.txt last_post.txt
-
-            git add last_post.txt
-            git commit -m "Update last post"
-            git push origin main
-          fi
+          print("HTTP status:", r.status_code)
+          print("HTML length:", len(r.text))
+          print("hololive_OCG found:", "hololive_OCG" in r.text)
+          print("status links found:", "/status/" in r.text)
+          PY
